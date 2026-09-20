@@ -1,22 +1,21 @@
 {
-  "name": "Mess Meal Manager",
-  "short_name": "MessManager",
-  "description": "Smart offline mess management system.",
+  "name": "Mess Manager Enterprise",
+  "short_name": "Mess Manager",
+  "description": "Intelligent Operations & Ledger System",
   "start_url": "./index.html",
-  "scope": "./",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait",
   "icons": [
     {
-      "src": "./icons/icon-192.png",
+      "src": "./assets/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "./icons/icon-512.png",
+      "src": "./assets/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

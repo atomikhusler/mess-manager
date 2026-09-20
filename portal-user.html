@@ -1,0 +1,72 @@
+<!-- portal-user.html -->
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#000000">
+    <title>Mess Member Hub</title>
+    <link rel="manifest" href="/manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { telegram: '#3390ec' },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="core/bughunter.js"></script> 
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        html, body { 
+            background-color: #000000 !important; 
+            color: #ffffff; 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+            overscroll-behavior-y: none; 
+        }
+        .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
+        .active-scale { transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1); }
+        .active-scale:active { transform: scale(0.95); }
+        .disable-scrollbars::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body id="app-body" class="hardware-accelerated h-[100dvh] w-screen flex flex-col overflow-hidden opacity-0 transition-opacity duration-300 bg-black selection:bg-telegram/20">
+
+    <header class="fixed top-0 inset-x-0 pt-[env(safe-area-inset-top)] bg-[#09090b]/90 backdrop-blur-2xl border-b border-white/[0.08] z-30 shrink-0">
+        <div class="px-5 py-4 flex justify-between items-center">
+            <div>
+                <h1 id="user-greeting" class="text-[20px] font-black tracking-tight text-white leading-none">Loading...</h1>
+                <div id="date-display" class="text-[10px] font-black uppercase tracking-widest text-telegram mt-1 font-mono">Syncing Matrix...</div>
+            </div>
+            <div class="flex items-center gap-2.5">
+                <button id="btn-user-notify" class="w-10 h-10 rounded-full flex items-center justify-center active-scale bg-white/5 border border-white/10 text-white transition-colors hover:bg-white/10">
+                    <i data-lucide="bell" class="w-4 h-4 pointer-events-none text-white/50"></i>
+                </button>
+                <button id="btn-user-logout" class="w-10 h-10 rounded-[12px] flex items-center justify-center active-scale bg-rose-500/10 border border-rose-500/20 transition-colors hover:bg-rose-500/20">
+                    <i data-lucide="log-out" class="w-4 h-4 text-rose-500 pointer-events-none"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="flex-1 overflow-y-auto px-4 mt-[calc(76px+env(safe-area-inset-top))] mb-[env(safe-area-inset-bottom)] hardware-accelerated relative disable-scrollbars pb-10">
+        <!-- user-ui.js injects the Smart Meal Cards and Ledger here -->
+    </main>
+
+    <div id="banner-container" class="fixed bottom-[env(safe-area-inset-bottom)] inset-x-5 z-40 pointer-events-none"></div>
+
+    <div id="modal-container" class="relative z-[105]"></div>
+    <div id="toast-container" class="fixed top-[calc(1.5rem+env(safe-area-inset-top,0px))] inset-x-0 px-4 z-[110] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script type="module" src="user/user-app.js"></script>
+</body>
+</html>

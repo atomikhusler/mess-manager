@@ -1,274 +1,104 @@
+<!-- portal-manager.html -->
 <!DOCTYPE html>
-<html lang="en" class="light">
+<html lang="en" class="dark">
 <head>
-    <script>
-        // The Bug Hunter
-        window.onerror = function(msg, url, line) {
-            alert("CRASH LOG: " + msg + "\nLine: " + line);
-            return false;
-        };
-        window.addEventListener('unhandledrejection', function(event) {
-            alert("PROMISE CRASH: " + (event.reason ? event.reason.message || event.reason : "Unknown Error"));
-        });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Manager Portal - Mess Manager</title>
-    
+    <title>Mess Manager - Portal</title>
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { darkMode: 'class', theme: { extend: {} } }
-    </script>
-    
-    <style>
-        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .hidden-view { display: none !important; }
-        * { -webkit-tap-highlight-color: transparent; }
-    </style>
-</head>
-<body class="bg-white dark:bg-black text-gray-900 dark:text-gray-100 transition-colors duration-200 antialiased overflow-hidden opacity-0" id="app-body">
-    
-    <!-- MAIN APP SHELL -->
-    <div class="flex h-dvh w-full">
-        <!-- DESKTOP SIDEBAR -->
-        <aside class="hidden md:flex flex-col w-64 bg-gray-50 dark:bg-[#0a0a0a] border-r border-gray-200 dark:border-gray-900 z-20 transition-colors">
-            <div class="p-6">
-                <h1 class="text-xl font-black tracking-tight text-blue-600 dark:text-blue-500">Mess Manager</h1>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Manager Portal</p>
-            </div>
-            <nav class="flex-1 flex flex-col px-3 gap-1" id="desktop-nav">
-                <button class="nav-btn active bg-white dark:bg-[#111] shadow-sm text-blue-600 dark:text-blue-500 text-left px-4 py-3 rounded-xl text-sm font-bold transition-all" data-target="view-roster">Daily Roster</button>
-                <button class="nav-btn text-gray-500 dark:text-gray-400 text-left px-4 py-3 rounded-xl text-sm font-semibold hover:bg-gray-100 dark:hover:bg-[#111] transition-all" data-target="view-ledger">Financial Ledger</button>
-                <button class="nav-btn text-gray-500 dark:text-gray-400 text-left px-4 py-3 rounded-xl text-sm font-semibold hover:bg-gray-100 dark:hover:bg-[#111] transition-all" data-target="view-directory">Student Directory</button>
-                <button class="nav-btn text-gray-500 dark:text-gray-400 text-left px-4 py-3 rounded-xl text-sm font-semibold hover:bg-gray-100 dark:hover:bg-[#111] transition-all" data-target="view-settings">Mess Setup</button>
-            </nav>
-            <div class="p-4 border-t border-gray-200 dark:border-gray-900">
-                <button id="btn-logout-desktop" class="w-full text-left px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">Log Out</button>
-            </div>
-        </aside>
-
-        <!-- MAIN CONTENT -->
-        <div class="flex-1 flex flex-col h-dvh relative overflow-hidden">
-            <!-- HEADER -->
-            <header class="bg-white/90 dark:bg-black/90 backdrop-blur-xl px-4 py-3 flex justify-between items-center z-10 sticky top-0 border-b border-gray-100 dark:border-gray-900 transition-colors">
-                <div>
-                    <h1 class="text-lg font-black tracking-tight" id="header-title">Daily Roster</h1>
-                </div>
-                
-                <div class="flex items-center gap-3">
-                    <!-- WhatsApp Broadcast Ping Button -->
-                    <button id="btn-ping-group" class="hidden md:flex items-center gap-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-500 px-3 py-1.5 rounded-lg text-xs font-bold active:scale-95 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/></svg>
-                        Ping Group
-                    </button>
-
-                    <button id="btn-theme-toggle" class="p-2 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors">
-                        <svg id="theme-icon-dark" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                        <svg id="theme-icon-light" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/></svg>
-                    </button>
-                    
-                    <!-- Mobile Logout Icon -->
-                    <button id="btn-logout-mobile" class="md:hidden p-2 text-red-500 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-                    </button>
-                </div>
-            </header>
-
-            <!-- SCROLLABLE VIEWPORT -->
-            <main id="app-content" class="flex-1 overflow-y-auto w-full max-w-4xl mx-auto pb-28 md:pb-10 pt-4">
-
-                <!-- VIEW 1: DAILY ROSTER -->
-                <section id="view-roster" class="view-section fade-in px-4">
-                    <div class="mb-6 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 p-4 rounded-2xl flex justify-between items-center">
-                        <div>
-                            <h2 class="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">Active Meal</h2>
-                            <p class="text-xl font-black text-gray-900 dark:text-white mt-0.5">Day Meal (Lunch)</p>
-                        </div>
-                        <div class="text-right">
-                            <h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cutoff Status</h2>
-                            <span class="inline-block mt-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider">Open (1h 12m left)</span>
-                        </div>
-                    </div>
-                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Student Entries (God Mode)</h3>
-                    <div id="roster-list" class="space-y-3">
-                        <!-- Data will be injected here via app.js -->
-                        <div class="p-6 text-center text-gray-400 border border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-                            Loading roster engine...
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 2: LEDGER -->
-                <section id="view-ledger" class="view-section hidden-view px-4 fade-in">
-                    <div class="grid grid-cols-2 gap-3 mb-6">
-                        <div class="bg-gray-50 dark:bg-[#111] p-4 rounded-2xl border border-gray-100 dark:border-gray-900">
-                            <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Market Expense</h3>
-                            <p class="text-2xl font-black text-gray-900 dark:text-white mt-1">₹0.00</p>
-                        </div>
-                        <div class="bg-gray-50 dark:bg-[#111] p-4 rounded-2xl border border-gray-100 dark:border-gray-900">
-                            <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Current Meal Rate</h3>
-                            <p class="text-2xl font-black text-blue-600 dark:text-blue-500 mt-1">₹0.00</p>
-                        </div>
-                    </div>
-                    <button class="w-full bg-gray-900 dark:bg-white text-white dark:text-black font-black text-sm py-4 rounded-xl mb-6">
-                        + Add Market Expense
-                    </button>
-                </section>
-
-                <!-- VIEW 3: DIRECTORY -->
-                <section id="view-directory" class="view-section hidden-view px-4 fade-in">
-                    <button class="w-full flex justify-center items-center gap-2 bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-500 font-black text-sm py-4 rounded-xl mb-6 border border-blue-100 dark:border-blue-900/30">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-                        Onboard New Student
-                    </button>
-                    <div id="directory-list" class="space-y-3">
-                        <div class="p-6 text-center text-gray-400 border border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-                            Loading directory...
-                        </div>
-                    </div>
-                </section>
-
-                <!-- VIEW 4: SETUP -->
-                <section id="view-settings" class="view-section hidden-view px-4 fade-in pt-2">
-                    <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Global Timers</h2>
-                    <div class="bg-gray-50 dark:bg-[#111] rounded-2xl border border-gray-100 dark:border-gray-900 p-4 mb-6 space-y-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm font-bold text-gray-900 dark:text-white">Day Meal Cutoff</span>
-                            <input type="time" value="10:00" class="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-1.5 text-sm font-bold outline-none">
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-sm font-bold text-gray-900 dark:text-white">Night Meal Cutoff</span>
-                            <input type="time" value="17:00" class="bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-1.5 text-sm font-bold outline-none">
-                        </div>
-                    </div>
-
-                    <h2 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Rice Engine Configuration</h2>
-                    <div class="bg-gray-50 dark:bg-[#111] rounded-2xl border border-gray-100 dark:border-gray-900 p-4 mb-8">
-                        <label class="block text-sm font-bold text-gray-900 dark:text-white mb-2">Operating Mode</label>
-                        <select class="w-full bg-white dark:bg-black border border-gray-200 dark:border-gray-800 rounded-xl px-4 py-3 text-sm font-bold outline-none mb-4">
-                            <option value="1">Mode 1: Pooled Purchase (Mess Buys)</option>
-                            <option value="2">Mode 2: Student Deposits (Kg / Grams)</option>
-                            <option value="3">Mode 3: Custom Unit (Cups / Bowls)</option>
-                        </select>
-                    </div>
-                </section>
-            </main>
-
-            <!-- MOBILE BOTTOM NAV -->
-            <nav class="md:hidden fixed bottom-0 w-full bg-white/95 dark:bg-black/95 backdrop-blur-xl border-t border-gray-100 dark:border-gray-900 flex justify-around pb-safe z-50">
-                <button class="nav-btn active flex flex-col items-center justify-center w-1/4 py-3 text-blue-600 dark:text-blue-500 transition-colors" data-target="view-roster">
-                    <svg class="nav-icon mb-1 stroke-[2.5px]" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
-                    <span class="text-[10px] font-bold">Roster</span>
-                </button>
-                <button class="nav-btn flex flex-col items-center justify-center w-1/4 py-3 text-gray-400 dark:text-gray-500 transition-colors" data-target="view-ledger">
-                    <svg class="nav-icon mb-1 stroke-2" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    <span class="text-[10px] font-bold">Ledger</span>
-                </button>
-                <button class="nav-btn flex flex-col items-center justify-center w-1/4 py-3 text-gray-400 dark:text-gray-500 transition-colors" data-target="view-directory">
-                    <svg class="nav-icon mb-1 stroke-2" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span class="text-[10px] font-bold">Directory</span>
-                </button>
-                <button class="nav-btn flex flex-col items-center justify-center w-1/4 py-3 text-gray-400 dark:text-gray-500 transition-colors" data-target="view-settings">
-                    <svg class="nav-icon mb-1 stroke-2" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 1.94l-.15 1.16C9.25 5.56 8.9 5.9 8.5 6.13l-1.12-.34a2 2 0 0 0-2.31.7l-1.3 2.27a2 2 0 0 0 .34 2.45l.93.93c-.02.2-.04.41-.04.62s.02.42.04.62l-.93.93a2 2 0 0 0-.34 2.45l1.3 2.27a2 2 0 0 0 2.31.7l1.12-.34c.4.23.75.57 1.13.78l.15 1.16a2 2 0 0 0 2 1.94h.44a2 2 0 0 0 2-1.94l.15-1.16c.38-.21.73-.55 1.13-.78l1.12.34a2 2 0 0 0 2.31-.7l1.3-2.27a2 2 0 0 0-.34-2.45l-.93-.93c.02-.2.04-.41.04-.62s-.02-.42-.04-.62l.93-.93a2 2 0 0 0 .34-2.45l-1.3-2.27a2 2 0 0 0-2.31-.7l-1.12.34c-.4-.23-.75-.57-1.13-.78l-.15-1.16A2 2 0 0 0 12.22 2z"/><circle cx="12" cy="12" r="3"/></svg>
-                    <span class="text-[10px] font-bold">Setup</span>
-                </button>
-            </nav>
-        </div>
-    </div>
-
-        <script>
-        // ==========================================
-        const SUPABASE_URL = "https://usazhtrcafnsylffrhhv.supabase.co";
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzYXpodHJjYWZuc3lsZmZyaGh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNzUyMTYsImV4cCI6MjEwMzk1MTIxNn0.KPAfz21-QfmaK5VOSqVXpkUBT7LujNQjsW85HTsqRhI";
-        // ==========================================
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-        // Security Guard: Verify Session and Role before showing UI
-        async function authenticateManager() {
-            try {
-                const { data, error } = await supabaseClient.auth.getSession();
-                if (!data?.session) throw new Error("No session");
-
-                // Check Role
-                const { data: profile } = await supabaseClient.from('profiles').select('role').eq('user_id', data.session.user.id).single();
-                
-                if (profile?.role !== 'MANAGER') {
-                    window.location.replace('index.html');
-                } else {
-                    document.getElementById('app-body').style.opacity = '1';
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { telegram: '#3390ec' },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
                 }
-            } catch (err) {
-                window.location.replace('index.html');
             }
         }
-
-        authenticateManager();
-
-        // --- UI ROUTING LOGIC ---
-        const navBtns = document.querySelectorAll('.nav-btn');
-        const views = document.querySelectorAll('.view-section');
-        const headerTitle = document.getElementById('header-title');
-
-        const titleMap = {
-            'view-roster': 'Daily Roster',
-            'view-ledger': 'Financial Ledger',
-            'view-directory': 'Student Directory',
-            'view-settings': 'Mess Setup'
-        };
-
-        navBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const targetId = btn.getAttribute('data-target');
-                headerTitle.innerText = titleMap[targetId];
-                views.forEach(v => v.classList.add('hidden-view'));
-                document.getElementById(targetId).classList.remove('hidden-view');
-
-                document.querySelectorAll('nav.md\\:hidden .nav-btn').forEach(b => {
-                    b.classList.remove('active', 'text-blue-600', 'dark:text-blue-500');
-                    b.classList.add('text-gray-400', 'dark:text-gray-500');
-                    b.querySelector('svg').classList.remove('stroke-[2.5px]');
-                    b.querySelector('svg').classList.add('stroke-2');
-                });
-
-                document.querySelectorAll('#desktop-nav .nav-btn').forEach(b => {
-                    b.classList.remove('active', 'bg-white', 'dark:bg-[#111]', 'shadow-sm', 'text-blue-600', 'dark:text-blue-500');
-                    b.classList.add('text-gray-500', 'dark:text-gray-400');
-                });
-
-                if (btn.closest('nav.md\\:hidden')) {
-                    btn.classList.remove('text-gray-400', 'dark:text-gray-500');
-                    btn.classList.add('active', 'text-blue-600', 'dark:text-blue-500');
-                    btn.querySelector('svg').classList.remove('stroke-2');
-                    btn.querySelector('svg').classList.add('stroke-[2.5px]');
-                } else {
-                    btn.classList.remove('text-gray-500', 'dark:text-gray-400');
-                    btn.classList.add('active', 'bg-white', 'dark:bg-[#111]', 'shadow-sm', 'text-blue-600', 'dark:text-blue-500');
-                }
-            });
-        });
-
-        // Logout Logic
-        const handleLogout = async () => {
-            await supabaseClient.auth.signOut();
-            window.location.replace('index.html');
-        };
-        document.getElementById('btn-logout-desktop').addEventListener('click', handleLogout);
-        document.getElementById('btn-logout-mobile').addEventListener('click', handleLogout);
-
-        // WhatsApp Ping Logic
-        document.getElementById('btn-ping-group').addEventListener('click', () => {
-            const message = encodeURIComponent("Reminder: Please update your meal status in the Mess Manager app before the cutoff time!");
-            window.open(`https://wa.me/?text=${message}`, '_blank');
-        });
-
-        // Theme Toggle
-        document.getElementById('btn-theme-toggle').addEventListener('click', () => {
-            document.documentElement.classList.toggle('dark');
-        });
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="core/bughunter.js"></script> 
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        html, body { 
+            background-color: #000000 !important; 
+            color: #ffffff; 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+            overscroll-behavior-y: none; 
+        }
+        .hardware-accelerated { transform: translateZ(0); will-change: transform, opacity; }
+        .active-scale { transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1); }
+        .active-scale:active { transform: scale(0.95); }
+        .disable-scrollbars::-webkit-scrollbar { display: none; }
+        .fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body id="app-body" class="hardware-accelerated h-[100dvh] w-screen flex flex-col overflow-hidden opacity-0 transition-opacity duration-300 bg-black selection:bg-telegram/20">
 
+    <!-- Global Top Bar: Hamburger anchored left, Pulse anchored right -->
+    <header class="fixed top-0 inset-x-0 pt-[env(safe-area-inset-top)] bg-[#09090b]/80 backdrop-blur-2xl border-b border-white/[0.08] z-30">
+        <div class="px-5 py-3.5 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <button id="btn-menu" class="w-9 h-9 rounded-full flex items-center justify-center active-scale bg-white/5 border border-white/10 text-white hover:bg-white/10 relative overflow-hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                </button>
+                <div>
+                    <h1 class="text-[15px] font-black tracking-tight leading-none text-white">Mess Manager</h1>
+                    <div id="header-page-title" class="text-[10px] font-bold uppercase tracking-widest mt-1 text-telegram">Daily Execution</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2.5">
+                <button id="btn-calc-header" class="w-9 h-9 rounded-full flex items-center justify-center active-scale bg-white/5 border border-white/10 text-white hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+                </button>
+                <button id="btn-notify" class="w-9 h-9 rounded-full flex items-center justify-center active-scale bg-white/5 border border-white/10 text-white hover:bg-white/10 relative">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                </button>
+                <button id="btn-pulse" class="w-9 h-9 rounded-[10px] flex items-center justify-center active-scale bg-telegram/10 border border-telegram/20 text-telegram shadow-inner hover:bg-telegram/20 relative overflow-hidden">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main id="main-content" class="flex-1 overflow-y-auto px-4 mt-[calc(60px+env(safe-area-inset-top))] mb-[calc(60px+env(safe-area-inset-bottom))] hardware-accelerated relative disable-scrollbars pb-6">
+        <!-- Dynamic Tab Views Injected Here -->
+    </main>
+
+    <!-- Bottom Navigation Bar: Strict Routing Order -->
+    <nav class="fixed bottom-0 inset-x-0 pb-[env(safe-area-inset-bottom)] bg-[#09090b]/90 backdrop-blur-2xl border-t border-white/[0.08] z-30 flex justify-between px-6 py-2">
+        <button class="nav-btn flex flex-col items-center gap-1 p-2 active-scale transition-colors text-telegram" data-target="view-roster">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></svg>
+            <span class="text-[9px] font-black uppercase tracking-wider">Roster</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 p-2 active-scale transition-colors text-white/30" data-target="view-directory">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span class="text-[9px] font-black uppercase tracking-wider">Members</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 p-2 active-scale transition-colors text-white/30" data-target="view-ledger">
+            <!-- Universal Wallet Icon -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5H5a2 2 0 0 1 0-4h16V12z"/></svg>
+            <span class="text-[9px] font-black uppercase tracking-wider">Ledger</span>
+        </button>
+        <button class="nav-btn flex flex-col items-center gap-1 p-2 active-scale transition-colors text-white/30" data-target="view-stats">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+            <span class="text-[9px] font-black uppercase tracking-wider">Analytics</span>
+        </button>
+    </nav>
+
+    <!-- Z-Index Enforced Structural Mounts -->
+    <div id="drawer-container" class="relative z-[100]"></div>
+    <div id="modal-container" class="relative z-[105]"></div>
+    
+    <!-- Locked Toast Architecture: z-[110] forces toasts cleanly over the frosted glass of open drawers -->
+    <div id="toast-container" class="fixed top-[calc(1.5rem+env(safe-area-inset-top,0px))] inset-x-0 px-4 z-[110] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script type="module" src="manager/manager-app.js"></script>
 </body>
 </html>

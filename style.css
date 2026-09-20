@@ -1,41 +1,95 @@
-/* style.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
-@layer utilities {
-  /* PWA Safe Area Paddings for Modern Notches and Gesture Bars */
-  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
-  .pt-safe { padding-top: env(safe-area-inset-top); }
-  .h-dvh { height: 100dvh; }
-  
-  /* Hide scrollbar for a seamless native feel */
-  .no-scrollbar::-webkit-scrollbar { display: none; }
-  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+:root {
+    /* 🍵 LIGHT MODE: Minimalist Monochrome */
+    --theme-bg-base: #F7F7F8;       
+    --theme-bg-surface: #FFFFFF;    
+    --theme-bg-elevated: #F1F1F3;   
+    --theme-text-main: #111113;     
+    --theme-text-muted: #6B7280;    
+    --theme-border-glass: rgba(0, 0, 0, 0.08);
+    
+    --theme-accent-primary: #3390ec; 
+    --theme-accent-danger: #ef4444;  
+    
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Base native-like interactions */
-* {
-    /* Removes the ugly blue flash when tapping on mobile */
-    -webkit-tap-highlight-color: transparent; 
+.dark {
+    /* 🌌 DARK MODE: Pure AMOLED / Vercel Aesthetic */
+    --theme-bg-base: #000000;       /* Pitch Black for OLED battery saving */
+    --theme-bg-surface: #09090b;    /* Ultra-dark Charcoal Cards */
+    --theme-bg-elevated: #111113;   /* Interactive Elevated Elements */
+    --theme-text-main: #FFFFFF;     
+    --theme-text-muted: #A1A1AA;    
+    --theme-border-glass: rgba(255, 255, 255, 0.08); /* Exact Auth-UI Match */
+}
+
+/* ==========================================
+   GLOBAL RESET & HARDWARE ACCELERATION
+   ========================================== */
+html, body {
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+    
+    height: 100dvh;
+    width: 100vw;
+    background-color: var(--theme-bg-base) !important;
+    color: var(--theme-text-main);
+    transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 body {
-    /* Prevents the entire app from bouncing when over-scrolling, making it feel solid */
-    overscroll-behavior-y: none; 
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
 }
 
-/* Form Animation */
-.animate-fade-in {
-    animation: fadeIn 0.3s ease-out forwards;
+.hardware-accelerated {
+    transform: translateZ(0);
+    will-change: transform, opacity;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+.active-scale {
+    transition: transform 0.15s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.active-scale:active {
+    transform: scale(0.96);
 }
 
-/* Strict view toggling */
-.hidden-view {
-    display: none !important;
+.glass-panel {
+    background: var(--theme-bg-surface);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--theme-border-glass);
+}
+.dark .glass-panel { background: rgba(9, 9, 11, 0.85); }
+
+.theme-card {
+    background-color: var(--theme-bg-surface);
+    border: 1px solid var(--theme-border-glass);
+    box-shadow: 0 4px 20px -2px rgba(0,0,0, 0.05);
+}
+
+/* Scrollbar Purge */
+::-webkit-scrollbar { width: 0px; background: transparent; }
+
+/* Fluid Skeleton Pulse */
+.skeleton-pulse {
+    background: linear-gradient(90deg, var(--theme-bg-elevated) 25%, var(--theme-bg-surface) 50%, var(--theme-bg-elevated) 75%);
+    background-size: 400% 100%;
+    animation: skeletonLoading 1.5s ease-in-out infinite;
+}
+@keyframes skeletonLoading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.fade-in { animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fadeIn { 
+    from { opacity: 0; transform: translateY(8px) scale(0.98); } 
+    to { opacity: 1; transform: translateY(0) scale(1); } 
 }

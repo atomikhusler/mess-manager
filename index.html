@@ -1,144 +1,92 @@
+<!-- index.html -->
 <!DOCTYPE html>
-<html lang="en" class="light">
+<html lang="en" class="dark">
 <head>
-    <!-- The Bug Hunter -->
-    <script>
-        window.onerror = function(msg, url, line) {
-            alert("CRASH LOG: " + msg + "\nLine: " + line);
-            return false;
-        };
-        window.addEventListener('unhandledrejection', function(event) {
-            alert("PROMISE CRASH: " + (event.reason ? event.reason.message || event.reason : "Unknown Error"));
-        });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mess Manager - Login</title>
-    
+    <meta name="theme-color" content="#000000">
+    <title>Mess Manager Enterprise</title>
+    <link rel="manifest" href="/manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = { darkMode: 'class', theme: { extend: {} } }
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { telegram: '#3390ec' },
+                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+                }
+            }
+        }
     </script>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="core/bughunter.js"></script> 
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        * { -webkit-tap-highlight-color: transparent; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        html, body { 
+            background-color: #000000 !important; 
+            color: #ffffff; 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+            overscroll-behavior-y: none; 
+        }
+        .fade-in-up { animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        ::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-gray-50 dark:bg-[#0a0a0a] text-gray-900 dark:text-gray-100 transition-colors duration-200 antialiased overflow-hidden">
+<body class="fixed inset-0 overflow-hidden bg-black selection:bg-telegram/20">
     
-    <!-- 1. SPLASH SCREEN BOOTLOADER -->
-    <div id="splash-screen" class="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white dark:bg-black transition-opacity duration-500">
-        <div class="text-6xl font-black tracking-tighter text-blue-600 dark:text-blue-500 animate-pulse">MM</div>
-        <div class="mt-4 text-xs font-bold text-gray-400 uppercase tracking-widest">Mess Manager</div>
-        <div id="boot-status" class="mt-8 text-[10px] font-bold text-gray-400 uppercase tracking-widest animate-pulse">Authenticating...</div>
-    </div>
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[50vh] bg-telegram/20 blur-[140px] rounded-[100%] pointer-events-none opacity-30"></div>
 
-    <!-- 2. UNIFIED AUTHENTICATION GATE -->
-    <div id="auth-container" class="hidden inset-0 z-[90] flex-col items-center justify-center px-4 h-dvh fade-in">
+    <div class="absolute inset-0 overflow-y-auto overflow-x-hidden flex flex-col justify-center items-center px-5 py-12 pb-32 z-10 disable-scrollbars">
         
-        <div class="w-full max-w-sm bg-white dark:bg-[#111] p-8 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-2xl relative overflow-hidden">
-            
-            <!-- STUDENT LOGIN VIEW (Default) -->
-            <div id="view-student-login" class="transition-all duration-300">
-                <div class="text-center mb-6">
-                    <div class="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-1">Student Login</div>
-                    <div class="text-xs text-gray-500 font-medium">Enter details provided by your manager</div>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Mess Code</label>
-                        <input type="text" id="student-mess-code" placeholder="6-Character Code" class="w-full mt-1 bg-gray-50 dark:bg-[#1a1a1c] text-sm font-bold text-gray-900 dark:text-white outline-none border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3.5 focus:border-blue-500 uppercase transition-colors">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Mobile Number</label>
-                        <input type="tel" id="student-phone" placeholder="10-digit number" class="w-full mt-1 bg-gray-50 dark:bg-[#1a1a1c] text-sm font-bold text-gray-900 dark:text-white outline-none border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3.5 focus:border-blue-500 transition-colors">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">4-Digit PIN</label>
-                        <input type="password" id="student-pin" placeholder="••••" maxlength="4" class="w-full mt-1 bg-gray-50 dark:bg-[#1a1a1c] text-center tracking-[0.5em] text-lg font-black text-gray-900 dark:text-white outline-none border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3.5 focus:border-blue-500 transition-colors">
-                    </div>
-                    
-                    <div class="pt-2">
-                        <button id="btn-student-login" class="w-full flex justify-center items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm py-4 rounded-xl active:scale-95 transition-all shadow-lg shadow-blue-600/20">
-                            Login securely
-                        </button>
-                    </div>
-                </div>
+        <!-- Locked Toast Architecture -->
+        <div id="toast-container" class="fixed top-[calc(1.5rem+env(safe-area-inset-top,0px))] inset-x-0 z-[110] flex flex-col gap-2 pointer-events-none px-4"></div>
+        <div id="modal-container" class="relative z-[105]"></div>
+
+        <div id="splash-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#000000] transition-opacity duration-500">
+            <div class="w-16 h-16 bg-white/5 border border-white/10 rounded-[16px] flex items-center justify-center mb-6 animate-pulse shadow-[0_0_40px_rgba(51,144,236,0.15)]">
+                <i data-lucide="shield-check" class="w-8 h-8 text-telegram"></i>
             </div>
-
-            <!-- MANAGER ACTIVATION VIEW (Hidden by default) -->
-            <div id="view-manager-activation" class="hidden transition-all duration-300">
-                <div class="text-center mb-6">
-                    <div class="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-1">Activate</div>
-                    <div class="text-xs text-gray-500 font-medium">Register device to unlock Manager Portal</div>
-                </div>
-                
-                <div class="space-y-4">
-                    <!-- Hardware ID injected here by auth.js -->
-                    <div id="did-ref-container" class="text-center py-1 mb-2 font-mono text-xs text-gray-400 dark:text-gray-500"></div>
-
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Manager Name</label>
-                        <input type="text" id="auth-name" placeholder="Enter your name" class="w-full mt-1 bg-gray-50 dark:bg-[#1a1a1c] text-sm font-bold text-gray-900 dark:text-white outline-none border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3.5 focus:border-blue-500 transition-colors">
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">Mobile Number</label>
-                        <input type="tel" id="auth-phone" placeholder="10-digit number" class="w-full mt-1 bg-gray-50 dark:bg-[#1a1a1c] text-sm font-bold text-gray-900 dark:text-white outline-none border border-gray-100 dark:border-gray-800 rounded-xl px-4 py-3.5 focus:border-blue-500 transition-colors">
-                    </div>
-                    
-                    <div class="pt-2">
-                        <button id="btn-request-key" class="w-full flex justify-center items-center gap-2 bg-gray-900 dark:bg-white text-white dark:text-black font-black text-sm py-4 rounded-xl active:scale-95 transition-all">
-                            Request Activation
-                        </button>
-                        <div id="auth-status-text" class="hidden text-center mt-3 text-[10px] font-bold text-blue-500 animate-pulse">
-                            Listening for admin approval... Leave app open.
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+            <div class="text-2xl font-black tracking-tight text-white mb-2">Mess Manager<span class="text-telegram">.</span></div>
+            <div id="boot-status" class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Securing Connection...</div>
         </div>
 
-        <!-- View Toggles -->
-        <button id="toggle-to-manager" class="mt-8 text-xs font-bold text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-            Are you a Mess Manager? Activate Device
-        </button>
-        <button id="toggle-to-student" class="hidden mt-8 text-xs font-bold text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-            Return to Student Login
-        </button>
+        <div id="app-root" class="w-full max-w-[360px] mx-auto relative my-auto"></div>
+        
+        <div id="biometric-prompt" class="hidden w-full max-w-[360px] mx-auto mt-6 bg-[#09090b] border border-white/[0.08] p-5 rounded-[24px] text-center fade-in-up">
+            <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-3 text-emerald-400">
+                <i data-lucide="fingerprint" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-[14px] font-black text-white mb-1">Biometric Fast-Lane Available</h3>
+            <p class="text-[11px] font-bold text-white/40 mb-4">Tap below to log in instantly with FaceID or Fingerprint.</p>
+            <button id="btn-webauthn" class="w-full py-3.5 rounded-[16px] font-black text-[13px] bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 active-scale">
+                Authenticate
+            </button>
+        </div>
 
+        <div id="pwa-install-prompt" class="hidden fixed bottom-[env(safe-area-inset-bottom)] inset-x-0 p-4 z-[90] fade-in-up">
+            <div class="bg-[#111113]/90 backdrop-blur-xl border border-white/10 p-4 rounded-[24px] shadow-2xl flex items-center gap-4">
+                <div class="w-12 h-12 bg-telegram rounded-[14px] flex items-center justify-center shrink-0">
+                    <i data-lucide="download-cloud" class="w-6 h-6 text-white"></i>
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-[13px] font-black text-white">Install App</h4>
+                    <p id="pwa-instruction" class="text-[10px] font-bold text-white/50 leading-snug mt-0.5">Tap 'Share' and select 'Add to Home Screen' for native performance.</p>
+                </div>
+                <button id="btn-close-pwa" class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white shrink-0 active-scale">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- UI View Switcher Script (Auth Logic resides in app.js/auth.js) -->
     <script>
-        const viewStudent = document.getElementById('view-student-login');
-        const viewManager = document.getElementById('view-manager-activation');
-        const btnToManager = document.getElementById('toggle-to-manager');
-        const btnToStudent = document.getElementById('toggle-to-student');
-
-        btnToManager.addEventListener('click', () => {
-            viewStudent.classList.add('hidden');
-            btnToManager.classList.add('hidden');
-            viewManager.classList.remove('hidden');
-            btnToStudent.classList.remove('hidden');
-        });
-
-        btnToStudent.addEventListener('click', () => {
-            viewManager.classList.add('hidden');
-            btnToStudent.classList.add('hidden');
-            viewStudent.classList.remove('hidden');
-            btnToManager.classList.remove('hidden');
-        });
+        console.log("%c MESS MANAGER 3.0 ENTERPRISE ", "background: #3390ec; color: #fff; font-size: 14px; font-weight: bold; border-radius: 4px; padding: 4px;");
+        console.log("%c Architected by SAHIL KUMAR ROUT | SPESIUM ", "color: #a1a1aa; font-size: 11px; font-weight: bold; padding: 4px;");
     </script>
-
-    <!-- Connects to your modular architecture -->
-    <script type="module" src="js/app.js"></script>
+    <script type="module" src="core/boot.js"></script>
 </body>
 </html>
