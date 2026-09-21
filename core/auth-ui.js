@@ -5,6 +5,7 @@ export const AuthState = {
     MANAGER: 'manager',
     REGISTER: 'register',
     WAITLIST: 'waitlist',
+    SETUP: 'setup',
     RECOVERY: 'recovery'
 };
 
@@ -26,10 +27,10 @@ export class AuthUI {
             case AuthState.MANAGER: content = this.getManagerTemplate(); break;
             case AuthState.REGISTER: content = this.getRegisterTemplate(); break;
             case AuthState.WAITLIST: content = this.getWaitlistTemplate(data.phone); break;
+            case AuthState.SETUP: content = this.getSetupTemplate(data.phone); break;
             case AuthState.RECOVERY: content = this.getRecoveryTemplate(); break;
         }
 
-        // Fluid, Keyboard-Safe Wrapper
         this.root.innerHTML = `
             <div class="w-full flex flex-col justify-center items-center min-h-full py-4 fade-in-up">
                 <div class="w-full max-w-[360px] bg-[#09090b] border border-white/[0.08] rounded-[24px] p-8 shadow-[0_20px_40px_-15px_rgba(0,0,0,1)] relative overflow-hidden">
@@ -168,6 +169,31 @@ export class AuthUI {
         `;
     }
 
+    getSetupTemplate(phone) {
+        return `
+            <div class="text-center mb-8">
+                <div class="w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-[18px] flex items-center justify-center mx-auto mb-5 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+                    <i data-lucide="fingerprint" class="w-6 h-6 text-emerald-500"></i>
+                </div>
+                <h1 class="text-[22px] font-black tracking-tight text-white mb-1.5">Initialize Vault</h1>
+                <p class="text-[13px] font-medium text-white/40">Set your permanent access PIN</p>
+            </div>
+            
+            <div class="space-y-4">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" id="setup-token" autocomplete="off" placeholder="6-Digit Activation Token" maxlength="6" class="w-full bg-[#000000] border border-emerald-500/30 text-emerald-500 text-center text-[15px] font-mono tracking-[0.5em] font-bold outline-none rounded-2xl px-5 py-4 shadow-inner placeholder-emerald-500/30 placeholder:tracking-normal focus:border-emerald-500/60 transition-all">
+                
+                <div class="grid grid-cols-2 gap-3 mt-4">
+                    <input type="password" inputmode="numeric" pattern="[0-9]*" id="setup-pin" placeholder="New PIN" maxlength="4" class="w-full bg-white/[0.03] border border-white/10 text-center tracking-[0.5em] text-lg font-black outline-none rounded-2xl px-4 py-4 text-white placeholder-white/30 placeholder:tracking-normal transition-all focus:bg-white/[0.06] focus:border-emerald-500/40">
+                    <input type="password" inputmode="numeric" pattern="[0-9]*" id="setup-confirm" placeholder="Confirm" maxlength="4" class="w-full bg-white/[0.03] border border-white/10 text-center tracking-[0.5em] text-lg font-black outline-none rounded-2xl px-4 py-4 text-white placeholder-white/30 placeholder:tracking-normal transition-all focus:bg-white/[0.06] focus:border-emerald-500/40">
+                </div>
+                
+                <button id="btn-submit-setup" class="w-full bg-emerald-500 text-white font-bold text-[14px] py-4 rounded-2xl transition-transform active:scale-95 mt-2 shadow-[0_0_20px_rgba(16,185,129,0.25)] flex justify-center items-center gap-2">
+                    Secure Vault <i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i>
+                </button>
+            </div>
+        `;
+    }
+
     getRecoveryTemplate() {
         return `
             <div class="text-center mb-8">
@@ -211,7 +237,6 @@ export class AuthUI {
     }
 
     attachFormatters() {
-        // Automatically enforce numeric inputs
         const enforceNumeric = (e) => { e.target.value = e.target.value.replace(/[^0-9]/g, ''); };
         this.root.querySelectorAll('input[inputmode="numeric"]').forEach(input => {
             input.addEventListener('input', enforceNumeric);

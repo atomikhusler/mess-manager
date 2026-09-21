@@ -15,7 +15,17 @@ function getOrCreateDeviceId() {
     return did;
 }
 
-// 🧠 Converts the 4-digit UI PIN into the 64-character Database Hash
+// 🧠 The Shadow Quarantine Fingerprint
+function getHardwareSig() {
+    let sig = localStorage.getItem('mm_hardware_sig');
+    if (!sig) {
+        // High-entropy footprint that survives standard clearing
+        sig = crypto.randomUUID() + '-' + Date.now().toString(36);
+        localStorage.setItem('mm_hardware_sig', sig);
+    }
+    return sig;
+}
+
 async function hashPin(pin) {
     const encoder = new TextEncoder();
     const data = encoder.encode(pin);
@@ -33,6 +43,7 @@ async function runBootSequence() {
     const splash = document.getElementById('splash-screen');
     const bootStatus = document.getElementById('boot-status');
     const deviceId = getOrCreateDeviceId();
+    getHardwareSig(); // Ensure fingerprint exists on boot
 
     const isManager = localStorage.getItem('mm_license_valid') === 'true';
     const messId = localStorage.getItem('mm_mess_id');
@@ -46,7 +57,6 @@ async function runBootSequence() {
             const res = await Promise.race([checkPromise, timeoutPromise]);
             
             if (res.timeout) {
-                console.warn("[Boot] Network timeout. Proceeding via offline cache.");
                 window.location.replace('portal-manager.html');
                 return;
             }
@@ -106,6 +116,134 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
 
+    // --- REGISTRATION REQUEST ---
+    if (btn.id === 'btn-submit-reg') {
+        const hostel = document.getElementById('reg-hostel').value.trim();
+        const name = document.getElementById('reg-name').value.trim();
+        const phone = document.getElementById('reg-phone').value.trim();
+
+        if (!hostel || !name || phone.length !== 10) return showToast("All fields required. Phone must be 10 digits.", "error");
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
+        refreshIcons();
+        btn.disabled = true;
+
+        try {
+            // 🧠 BIND FINGERPRINT: Send hardware_sig to the backend for the Quarantine Matrix
+            const { error } = await supabase.from('registration_requests').insert([{
+                hostel_name: hostel, 
+                manager_name: name, 
+                manager_phone: phone, 
+                hardware_sig: getHardwareSig(),
+                status: 'PENDING'
+            }]);
+            if (error) throw error;
+
+            localStorage.setItem('mm_pending_phone', phone);
+            showToast("Request Sent Successfully!", "success");
+            setTimeout(() => uiEngine.render(AuthState.WAITLIST, { phone }), 800);
+
+        } catch (err) {
+            showToast("Network error or connection blocked.", "error");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            refreshIcons();
+        }
+    }
+
+    // --- WAITLIST STATUS CHECK ---
+    if (btn.id === 'btn-check-status') {
+        const phone = localStorage.getItem('mm_pending_phone');
+        if (!phone) return uiEngine.render(AuthState.MANAGER);
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
+        refreshIcons();
+        btn.disabled = true;
+
+        try {
+            const { data: reqData, error: reqErr } = await supabase.from('registration_requests')
+                .select('status').eq('manager_phone', phone).order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+            if (reqErr) throw reqErr;
+
+            if (reqData && reqData.status === 'APPROVED') {
+                showModal({
+                    title: "Application Approved",
+                    message: "Please check your registered Email or WhatsApp for your 6-digit Activation Token.",
+                    type: "success",
+                    confirmText: "Proceed to Setup",
+                    onConfirm: (closeModal) => {
+                        closeModal();
+                        uiEngine.render(AuthState.SETUP, { phone });
+                    }
+                });
+            } else {
+                showToast("Request is still pending review.", "info");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                refreshIcons();
+            }
+        } catch (err) {
+            showToast("Error checking status.", "error");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            refreshIcons();
+        }
+    }
+
+    // --- ZERO-KNOWLEDGE ACCOUNT SETUP ---
+    if (btn.id === 'btn-submit-setup') {
+        const token = document.getElementById('setup-token').value.trim();
+        const pin = document.getElementById('setup-pin').value.trim();
+        const confirm = document.getElementById('setup-confirm').value.trim();
+        const phone = localStorage.getItem('mm_pending_phone');
+
+        if (token.length !== 6 || pin.length !== 4 || pin !== confirm) {
+            return showToast("Token must be 6 digits. PINs must be 4 digits and match.", "error");
+        }
+
+        const originalText = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
+        refreshIcons();
+        btn.disabled = true;
+
+        try {
+            const hashedPin = await hashPin(pin);
+            
+            // Validate the token and push the hashed PIN securely
+            const { data: updateData, error: updateErr } = await supabase.from('messes')
+                .update({ manager_pin: hashedPin, activation_token: null })
+                .eq('activation_token', token)
+                .eq('manager_phone', phone)
+                .select('mess_code').single();
+
+            if (updateErr || !updateData) throw new Error("Invalid or Expired Token.");
+
+            // 🧠 SELF-DESTRUCT PROTOCOL: Purge the original lead request instantly
+            await supabase.from('registration_requests').delete().eq('manager_phone', phone);
+
+            localStorage.removeItem('mm_pending_phone');
+            
+            showModal({
+                title: "Vault Secured",
+                message: `Your account is ready. Your Mess Code is: <b class="text-telegram">${updateData.mess_code}</b>.`,
+                type: "success",
+                onConfirm: (closeModal) => {
+                    closeModal();
+                    uiEngine.render(AuthState.MANAGER);
+                }
+            });
+
+        } catch (err) {
+            showToast(err.message, "error");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            refreshIcons();
+        }
+    }
+
     // --- MANAGER LOGIN ---
     if (btn.id === 'btn-mgr-login') {
         const messCode = document.getElementById('mgr-code').value.trim().toUpperCase(); 
@@ -122,11 +260,9 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
         btn.disabled = true;
 
         try {
-            // 🧠 HASH FIRST: Convert the 4-digit UI pin into the 64-char DB hash
             const hashedInputPin = await hashPin(pin);
             const deviceId = getOrCreateDeviceId();
             
-            // Query Supabase using the Hash, NOT the raw PIN
             const { data, error } = await supabase.from('messes')
                 .select('*').eq('mess_code', messCode).eq('manager_phone', phone).eq('manager_pin', hashedInputPin).maybeSingle();
 
@@ -143,7 +279,6 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
                 if (updateErr) throw updateErr;
             }
 
-            // Store the hash locally for offline reconnections
             localStorage.setItem('mm_pin_hash', hashedInputPin);
             localStorage.setItem('mm_license_valid', 'true');
             localStorage.setItem('mm_mess_id', data.id);
@@ -168,9 +303,7 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
         const phone = document.getElementById('auth-phone').value.trim();
         const pin = document.getElementById('auth-pin').value.trim();
 
-        if (!code || phone.length !== 10 || pin.length !== 4) {
-            return showToast("Check Mess Code, Phone (10) and PIN (4).", "error");
-        }
+        if (!code || phone.length !== 10 || pin.length !== 4) return showToast("Check Mess Code, Phone (10) and PIN (4).", "error");
 
         const originalText = btn.innerHTML;
         btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
@@ -182,7 +315,6 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             if (messErr || !messData) throw new Error("Invalid Mess Code.");
             if (messData.status === 'SUSPENDED') throw new Error("Mess operations suspended by Admin.");
 
-            // Assuming Student PINs are currently stored in plain text based on the manager creation code
             const { data: userData, error: userErr } = await supabase.from('profiles')
                 .select('id, name, phone, status')
                 .eq('mess_id', messData.id).eq('phone', phone).eq('pin_hash', pin).eq('role', 'STUDENT').maybeSingle();
@@ -200,93 +332,6 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             btn.disabled = false;
             refreshIcons();
         }
-    }
-
-    // --- REGISTRATION REQUEST ---
-    if (btn.id === 'btn-submit-reg') {
-        const hostel = document.getElementById('reg-hostel').value.trim();
-        const name = document.getElementById('reg-name').value.trim();
-        const phone = document.getElementById('reg-phone').value.trim();
-
-        if (!hostel || !name || phone.length !== 10) return showToast("All fields required. Phone must be 10 digits.", "error");
-
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
-        refreshIcons();
-        btn.disabled = true;
-
-        try {
-            const { error } = await supabase.from('registration_requests').insert([{
-                hostel_name: hostel, manager_name: name, manager_phone: phone, status: 'PENDING'
-            }]);
-            if (error) throw error;
-
-            localStorage.setItem('mm_pending_phone', phone);
-            showToast("Request Sent Successfully!", "success");
-            setTimeout(() => uiEngine.render(AuthState.WAITLIST, { phone }), 800);
-
-        } catch (err) {
-            showToast("Network error.", "error");
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            refreshIcons();
-        }
-    }
-
-    // --- WAITLIST STATUS CHECK ---
-    if (btn.id === 'btn-check-status') {
-        const phone = localStorage.getItem('mm_pending_phone');
-        if (!phone) return uiEngine.render(AuthState.MANAGER);
-
-        const originalText = btn.innerHTML;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin mx-auto"></i>`;
-        refreshIcons();
-        btn.disabled = true;
-
-        try {
-            const { data: reqData, error: reqErr } = await supabase.from('registration_requests')
-                .select('status').eq('manager_phone', phone).order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-            if (reqErr) throw reqErr;
-
-            if (reqData && reqData.status === 'APPROVED') {
-                // Because PIN is now hashed, we can no longer show them their PIN in plain text here.
-                // We show them the Mess Code and Recovery Key. They use the PIN they originally submitted to you.
-                const { data: messData, error: messErr } = await supabase.from('messes')
-                    .select('mess_code, recovery_key').eq('manager_phone', phone).single();
-                
-                if (messErr) throw messErr;
-
-                localStorage.removeItem('mm_pending_phone'); 
-                uiEngine.render(AuthState.MANAGER); 
-                
-                showModal({
-                    title: "Provisioning Complete!",
-                    message: `The Admin has approved your hostel. Please screenshot your credentials.<br><br>
-                              <b>Mess Code:</b> <span class="text-telegram font-black">${messData.mess_code}</span><br>
-                              <b>Login PIN:</b> <span class="text-rose-600 font-bold">Use the 4-Digit PIN provided to Admin</span><br>
-                              <br><span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Master Recovery Key:</span><br>
-                              <span class="bg-[#111] border border-slate-800 text-telegram px-2 py-1 rounded font-mono text-[11px] font-black mt-1 inline-block">${messData.recovery_key}</span>`,
-                    type: "success"
-                });
-            } else {
-                showToast("Request is still pending review.", "info");
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                refreshIcons();
-            }
-        } catch (err) {
-            showToast("Error checking status.", "error");
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            refreshIcons();
-        }
-    }
-
-    // --- CANCEL WAITLIST ---
-    if (btn.id === 'btn-cancel-req') {
-        localStorage.removeItem('mm_pending_phone');
-        uiEngine.render(AuthState.MANAGER);
     }
 
     // --- WEB3 PIN RECOVERY ---
@@ -310,9 +355,7 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             if (error || !data) throw new Error("Invalid Mess Code or Phone.");
             if (data.recovery_key !== key) throw new Error("Invalid Recovery Key.");
 
-            // 🧠 HASH FIRST: Hash the new PIN before saving it to Supabase
             const hashedNewPin = await hashPin(newPin);
-            
             const { error: updateErr } = await supabase.from('messes').update({ manager_pin: hashedNewPin }).eq('id', data.id);
             if (updateErr) throw new Error("Failed to reset PIN.");
 
@@ -332,6 +375,11 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             btn.disabled = false;
             refreshIcons();
         }
+    }
+
+    if (btn.id === 'btn-cancel-req') {
+        localStorage.removeItem('mm_pending_phone');
+        uiEngine.render(AuthState.MANAGER);
     }
 });
 
