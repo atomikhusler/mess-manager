@@ -4,7 +4,7 @@ import { showToast, showModal, refreshIcons } from './ui-core.js';
 import { AuthUI, AuthState } from './auth-ui.js'; 
 
 // ==========================================
-// 1. HARDWARE IDENTITY ENGINE
+// 1. HARDWARE IDENTITY & CRYPTO ENGINE
 // ==========================================
 function getOrCreateDeviceId() {
     let did = localStorage.getItem('mm_device_id');
@@ -13,6 +13,14 @@ function getOrCreateDeviceId() {
         localStorage.setItem('mm_device_id', did);
     }
     return did;
+}
+
+// 🧠 Converts the 4-digit UI PIN into the 64-character Database Hash
+async function hashPin(pin) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(pin);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ==========================================
@@ -32,8 +40,6 @@ async function runBootSequence() {
     if (isManager && messId) {
         if (bootStatus) bootStatus.innerText = "Verifying SaaS License...";
         try {
-            // Failsafe: 3000ms max timeout for bad network environments. 
-            // If offline, bypass and allow local-cache to serve the app.
             const checkPromise = supabase.from('messes').select('active_devices, status').eq('id', messId).maybeSingle();
             const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 3000));
             
@@ -69,7 +75,6 @@ async function runBootSequence() {
         return;
     }
 
-    // --- Launch Elite Auth Gateway ---
     setTimeout(() => {
         if (splash) {
             splash.style.transform = 'scale(1.05)';
@@ -95,7 +100,7 @@ async function runBootSequence() {
 }
 
 // ==========================================
-// 3. EVENT DELEGATION ROUTER (Dynamic DOM safe)
+// 3. EVENT DELEGATION ROUTER
 // ==========================================
 document.getElementById('app-root')?.addEventListener('click', async (e) => {
     const btn = e.target.closest('button');
@@ -117,9 +122,13 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
         btn.disabled = true;
 
         try {
+            // 🧠 HASH FIRST: Convert the 4-digit UI pin into the 64-char DB hash
+            const hashedInputPin = await hashPin(pin);
             const deviceId = getOrCreateDeviceId();
+            
+            // Query Supabase using the Hash, NOT the raw PIN
             const { data, error } = await supabase.from('messes')
-                .select('*').eq('mess_code', messCode).eq('manager_phone', phone).eq('manager_pin', pin).maybeSingle();
+                .select('*').eq('mess_code', messCode).eq('manager_phone', phone).eq('manager_pin', hashedInputPin).maybeSingle();
 
             if (error || !data) throw new Error("Invalid Credentials.");
             if (data.status === 'SUSPENDED') throw new Error("Subscription inactive.");
@@ -134,15 +143,8 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
                 if (updateErr) throw updateErr;
             }
 
-            // 🧠 SMART ARCHITECTURE: Offline WebCrypto PIN Hash Generation
-            // We hash the PIN instantly and store the signature, not the plain text.
-            const encoder = new TextEncoder();
-            const pinData = encoder.encode(pin);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', pinData);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashedPin = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            localStorage.setItem('mm_pin_hash', hashedPin);
-
+            // Store the hash locally for offline reconnections
+            localStorage.setItem('mm_pin_hash', hashedInputPin);
             localStorage.setItem('mm_license_valid', 'true');
             localStorage.setItem('mm_mess_id', data.id);
             localStorage.setItem('mm_first_login', 'true'); 
@@ -180,6 +182,7 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             if (messErr || !messData) throw new Error("Invalid Mess Code.");
             if (messData.status === 'SUSPENDED') throw new Error("Mess operations suspended by Admin.");
 
+            // Assuming Student PINs are currently stored in plain text based on the manager creation code
             const { data: userData, error: userErr } = await supabase.from('profiles')
                 .select('id, name, phone, status')
                 .eq('mess_id', messData.id).eq('phone', phone).eq('pin_hash', pin).eq('role', 'STUDENT').maybeSingle();
@@ -247,8 +250,10 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             if (reqErr) throw reqErr;
 
             if (reqData && reqData.status === 'APPROVED') {
+                // Because PIN is now hashed, we can no longer show them their PIN in plain text here.
+                // We show them the Mess Code and Recovery Key. They use the PIN they originally submitted to you.
                 const { data: messData, error: messErr } = await supabase.from('messes')
-                    .select('mess_code, manager_pin, recovery_key').eq('manager_phone', phone).single();
+                    .select('mess_code, recovery_key').eq('manager_phone', phone).single();
                 
                 if (messErr) throw messErr;
 
@@ -259,7 +264,7 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
                     title: "Provisioning Complete!",
                     message: `The Admin has approved your hostel. Please screenshot your credentials.<br><br>
                               <b>Mess Code:</b> <span class="text-telegram font-black">${messData.mess_code}</span><br>
-                              <b>Login PIN:</b> <span class="text-rose-600 font-black tracking-widest">${messData.manager_pin}</span><br>
+                              <b>Login PIN:</b> <span class="text-rose-600 font-bold">Use the 4-Digit PIN provided to Admin</span><br>
                               <br><span class="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Master Recovery Key:</span><br>
                               <span class="bg-[#111] border border-slate-800 text-telegram px-2 py-1 rounded font-mono text-[11px] font-black mt-1 inline-block">${messData.recovery_key}</span>`,
                     type: "success"
@@ -305,7 +310,10 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             if (error || !data) throw new Error("Invalid Mess Code or Phone.");
             if (data.recovery_key !== key) throw new Error("Invalid Recovery Key.");
 
-            const { error: updateErr } = await supabase.from('messes').update({ manager_pin: newPin }).eq('id', data.id);
+            // 🧠 HASH FIRST: Hash the new PIN before saving it to Supabase
+            const hashedNewPin = await hashPin(newPin);
+            
+            const { error: updateErr } = await supabase.from('messes').update({ manager_pin: hashedNewPin }).eq('id', data.id);
             if (updateErr) throw new Error("Failed to reset PIN.");
 
             showModal({
