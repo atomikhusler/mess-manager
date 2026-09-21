@@ -19,7 +19,6 @@ function getOrCreateDeviceId() {
 function getHardwareSig() {
     let sig = localStorage.getItem('mm_hardware_sig');
     if (!sig) {
-        // High-entropy footprint that survives standard clearing
         sig = crypto.randomUUID() + '-' + Date.now().toString(36);
         localStorage.setItem('mm_hardware_sig', sig);
     }
@@ -43,7 +42,7 @@ async function runBootSequence() {
     const splash = document.getElementById('splash-screen');
     const bootStatus = document.getElementById('boot-status');
     const deviceId = getOrCreateDeviceId();
-    getHardwareSig(); // Ensure fingerprint exists on boot
+    getHardwareSig(); 
 
     const isManager = localStorage.getItem('mm_license_valid') === 'true';
     const messId = localStorage.getItem('mm_mess_id');
@@ -51,7 +50,8 @@ async function runBootSequence() {
     if (isManager && messId) {
         if (bootStatus) bootStatus.innerText = "Verifying SaaS License...";
         try {
-            const checkPromise = supabase.from('messes').select('active_devices, status').eq('id', messId).maybeSingle();
+            // FIXED: active_devices removed. Relying purely on offline license and suspension check.
+            const checkPromise = supabase.from('messes').select('status').eq('id', messId).maybeSingle();
             const timeoutPromise = new Promise(resolve => setTimeout(() => resolve({ timeout: true }), 3000));
             
             const res = await Promise.race([checkPromise, timeoutPromise]);
@@ -61,14 +61,14 @@ async function runBootSequence() {
                 return;
             }
 
-            if (res.data && res.data.status !== 'SUSPENDED' && res.data.active_devices.includes(deviceId)) {
+            if (res.data && res.data.status !== 'SUSPENDED') {
                 window.location.replace('portal-manager.html');
                 return;
             } else {
                 localStorage.clear();
                 showModal({
                     title: "Session Expired",
-                    message: res.data?.status === 'SUSPENDED' ? "Account suspended by Admin." : "Logged in from another device.",
+                    message: "Account has been suspended or reset by Administration.",
                     type: "danger"
                 });
             }
@@ -130,7 +130,6 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
         btn.disabled = true;
 
         try {
-            // 🧠 BIND FINGERPRINT: Send hardware_sig to the backend for the Quarantine Matrix
             const { error } = await supabase.from('registration_requests').insert([{
                 hostel_name: hostel, 
                 manager_name: name, 
@@ -169,9 +168,28 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
             if (reqErr) throw reqErr;
 
             if (reqData && reqData.status === 'APPROVED') {
+                
+                // 🧠 FIXED: Fetch the activation token and show it directly to the user
+                const { data: messData, error: messErr } = await supabase.from('messes')
+                    .select('activation_token').eq('manager_phone', phone).single();
+                
+                if (messErr) throw messErr;
+
+                // Failsafe: If token is missing, they already set up the account
+                if (!messData.activation_token) {
+                    showToast("Account already active. Please log in.", "info");
+                    localStorage.removeItem('mm_pending_phone');
+                    uiEngine.render(AuthState.MANAGER);
+                    return;
+                }
+
                 showModal({
                     title: "Application Approved",
-                    message: "Please check your registered Email or WhatsApp for your 6-digit Activation Token.",
+                    message: `Your hostel has been provisioned! Copy your secure setup token:<br><br>
+                              <div class="text-center w-full mt-2 mb-2">
+                                <span class="bg-[#111] text-emerald-500 tracking-[0.25em] font-mono text-2xl px-5 py-3 border border-emerald-500/30 rounded-xl font-black shadow-inner block">${messData.activation_token}</span>
+                              </div>
+                              <br>Tap proceed to initialize your vault and set your permanent PIN.`,
                     type: "success",
                     confirmText: "Proceed to Setup",
                     onConfirm: (closeModal) => {
@@ -212,7 +230,6 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
         try {
             const hashedPin = await hashPin(pin);
             
-            // Validate the token and push the hashed PIN securely
             const { data: updateData, error: updateErr } = await supabase.from('messes')
                 .update({ manager_pin: hashedPin, activation_token: null })
                 .eq('activation_token', token)
@@ -221,9 +238,7 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
 
             if (updateErr || !updateData) throw new Error("Invalid or Expired Token.");
 
-            // 🧠 SELF-DESTRUCT PROTOCOL: Purge the original lead request instantly
             await supabase.from('registration_requests').delete().eq('manager_phone', phone);
-
             localStorage.removeItem('mm_pending_phone');
             
             showModal({
@@ -261,23 +276,13 @@ document.getElementById('app-root')?.addEventListener('click', async (e) => {
 
         try {
             const hashedInputPin = await hashPin(pin);
-            const deviceId = getOrCreateDeviceId();
             
+            // FIXED: Removed active_devices array dependency entirely
             const { data, error } = await supabase.from('messes')
-                .select('*').eq('mess_code', messCode).eq('manager_phone', phone).eq('manager_pin', hashedInputPin).maybeSingle();
+                .select('id, status').eq('mess_code', messCode).eq('manager_phone', phone).eq('manager_pin', hashedInputPin).maybeSingle();
 
             if (error || !data) throw new Error("Invalid Credentials.");
             if (data.status === 'SUSPENDED') throw new Error("Subscription inactive.");
-
-            let activeDevices = data.active_devices || [];
-            const maxDevices = data.max_devices || 1;
-
-            if (!activeDevices.includes(deviceId)) {
-                activeDevices.push(deviceId);
-                while (activeDevices.length > maxDevices) activeDevices.shift(); 
-                const { error: updateErr } = await supabase.from('messes').update({ active_devices: activeDevices }).eq('id', data.id);
-                if (updateErr) throw updateErr;
-            }
 
             localStorage.setItem('mm_pin_hash', hashedInputPin);
             localStorage.setItem('mm_license_valid', 'true');
